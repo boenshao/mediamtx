@@ -100,6 +100,7 @@ func (p *Path) Decode(format string, v string) bool {
 	re = strings.ReplaceAll(re, "%S", "([0-9]{2})")
 	re = strings.ReplaceAll(re, "%f", "([0-9]{6})")
 	re = strings.ReplaceAll(re, "%s", "([0-9]{10})")
+	re = strings.ReplaceAll(re, "%z", "([+-][0-9]{4})")
 	r := regexp.MustCompile(re)
 
 	var groupMapping []string
@@ -122,6 +123,7 @@ func (p *Path) Decode(format string, v string) bool {
 			"%S",
 			"%f",
 			"%s",
+			"%z",
 		} {
 			if strings.HasPrefix(cur, va) {
 				groupMapping = append(groupMapping, va)
@@ -150,6 +152,7 @@ func (p *Path) Decode(format string, v string) bool {
 	var second int
 	var micros int
 	var unixSec int64 = -1
+	var loc *time.Location = time.Local
 
 	for k, v := range values {
 		switch k {
@@ -186,13 +189,16 @@ func (p *Path) Decode(format string, v string) bool {
 
 		case "%s":
 			unixSec, _ = strconv.ParseInt(v, 10, 64)
+
+		case "%z":
+			loc = time.FixedZone("fromFilename", strToOffset(v))
 		}
 	}
 
 	if unixSec > 0 {
 		p.Start = time.Unix(unixSec, 0)
 	} else {
-		p.Start = time.Date(year, month, day, hour, minute, second, micros*1000, time.Local)
+		p.Start = time.Date(year, month, day, hour, minute, second, micros*1000, loc)
 	}
 
 	return true
@@ -209,5 +215,33 @@ func (p Path) Encode(format string) string {
 	format = strings.ReplaceAll(format, "%S", leadingZeros(p.Start.Second(), 2))
 	format = strings.ReplaceAll(format, "%f", leadingZeros(p.Start.Nanosecond()/1000, 6))
 	format = strings.ReplaceAll(format, "%s", strconv.FormatInt(p.Start.Unix(), 10))
+	_, offset := p.Start.Zone()
+	format = strings.ReplaceAll(format, "%z", offsetToStr(offset))
 	return format
+}
+
+func offsetToStr(offset int) string {
+	z := "+"
+	if offset < 0 {
+		offset *= -1
+		z = "-"
+	}
+
+	h := offset / 3600
+	m := (offset % 3600) / 60
+	z += leadingZeros(h, 2) + leadingZeros(m, 2)
+
+	return z
+}
+
+func strToOffset(z string) int {
+	h, _ := strconv.ParseInt(z[1:3], 10, 64)
+	m, _ := strconv.ParseInt(z[3:5], 10, 64)
+
+	offset := int(h)*3600 + int(m)*60
+	if z[0] == '-' {
+		offset *= -1
+	}
+
+	return offset
 }
