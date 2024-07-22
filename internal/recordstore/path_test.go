@@ -7,6 +7,18 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func utc() *time.Location {
+	return time.FixedZone("fromFilename", 0)
+}
+
+func tokyo() *time.Location {
+	return time.FixedZone("fromFilename", 32400)
+}
+
+func ny() *time.Location {
+	return time.FixedZone("fromFilename", -14400)
+}
+
 var pathCases = []struct {
 	name   string
 	format string
@@ -21,6 +33,33 @@ var pathCases = []struct {
 			Path:  "mypath",
 		},
 		"mypath/2008-11-07_11-22-04-123456.mp4",
+	},
+	{
+		"timezone UTC",
+		"%path/%Y-%m-%d_%H-%M-%S-%f-%z.mp4",
+		Path{
+			Start: time.Date(2008, 11, 0o7, 11, 22, 4, 123456000, utc()),
+			Path:  "mypath",
+		},
+		"mypath/2008-11-07_11-22-04-123456-+0000.mp4",
+	},
+	{
+		"timezone new york",
+		"%path/%Y-%m-%d_%H-%M-%S-%f-%z.mp4",
+		Path{
+			Start: time.Date(2008, 11, 0o7, 11, 22, 4, 123456000, ny()),
+			Path:  "mypath",
+		},
+		"mypath/2008-11-07_11-22-04-123456--0400.mp4",
+	},
+	{
+		"with timezone tokyo",
+		"%path/%Y-%m-%d_%H-%M-%S-%f-%z.mp4",
+		Path{
+			Start: time.Date(2008, 11, 0o7, 11, 22, 4, 123456000, tokyo()),
+			Path:  "mypath",
+		},
+		"mypath/2008-11-07_11-22-04-123456-+0900.mp4",
 	},
 	{
 		"unix seconds",
